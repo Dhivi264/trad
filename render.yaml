@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: smc-chart-analyzer
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: |
+      cd quotex_predictor
+      pip install -r ../requirements.txt
+      python manage.py collectstatic --noinput
+      python manage.py migrate --noinput
+    startCommand: |
+      cd quotex_predictor
+      python manage.py runserver 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.10"
+      - key: DJANGO_SETTINGS_MODULE
+        value: quotex_predictor.settings
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "*"
+    healthCheckPath: /
+    
+databases:
+  - name: smc-database
+    databaseName: smc_db
+    user: smc_user
+    plan: free
