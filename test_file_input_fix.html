@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Input Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .upload-area {
+            border: 2px dashed #555;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            margin: 20px 0;
+            background: #2a2a2a;
+        }
+        .upload-area:hover {
+            border-color: #007bff;
+            background: #333;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover { background: #0056b3; }
+        .btn.success { background: #28a745; }
+        .btn.danger { background: #dc3545; }
+        .result {
+            background: #333;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 File Input Fix Test</h1>
+    
+    <div class="upload-area" id="uploadArea">
+        <div class="upload-icon">
+            <i class="fas fa-image"></i>
+        </div>
+        <h3>Drop your chart image here (Required)</h3>
+        <p>or click to browse files</p>
+        <input type="file" id="chartFile" name="chart_image" accept="image/*" style="display: none;">
+    </div>
+    
+    <button class="btn" onclick="testFileInput()">🧪 Test File Input</button>
+    <button class="btn success" onclick="simulateUpload()">📁 Simulate Upload</button>
+    <button class="btn danger" onclick="resetArea()">🔄 Reset Area</button>
+    
+    <div id="results" class="result">
+        Click "Test File Input" to check the current state...
+    </div>
+
+    <script>
+        let fileInputListeners = [];
+        
+        function attachFileInputListeners() {
+            const fileInput = document.getElementById('chartFile');
+            const uploadArea = document.getElementById('uploadArea');
+            
+            if (!fileInput || !uploadArea) {
+                console.log('❌ Elements not found');
+                return;
+            }
+            
+            // Remove existing listeners
+            fileInputListeners.forEach(listener => {
+                listener.element.removeEventListener(listener.event, listener.handler);
+            });
+            fileInputListeners = [];
+            
+            // File input change handler
+            const fileChangeHandler = (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    updateUploadArea(e.target.files[0]);
+                }
+            };
+            
+            // Upload area click handler
+            const uploadClickHandler = () => {
+                const currentFileInput = document.getElementById('chartFile');
+                if (currentFileInput) {
+                    currentFileInput.click();
+                }
+            };
+            
+            // Attach listeners
+            fileInput.addEventListener('change', fileChangeHandler);
+            uploadArea.addEventListener('click', uploadClickHandler);
+            
+            // Store listeners for cleanup
+            fileInputListeners.push(
+                { element: fileInput, event: 'change', handler: fileChangeHandler },
+                { element: uploadArea, event: 'click', handler: uploadClickHandler }
+            );
+            
+            console.log('✅ File input listeners attached');
+        }
+        
+        function updateUploadArea(file) {
+            const uploadArea = document.getElementById('uploadArea');
+            
+            // Update visual content while preserving file input
+            uploadArea.innerHTML = `
+                <div class="upload-icon" style="color: #28a745;">
+                    ✅
+                </div>
+                <h3>${file.name}</h3>
+                <p>File ready for analysis</p>
+                <p style="font-size: 0.9rem; color: #ccc;">
+                    Size: ${(file.size / 1024 / 1024).toFixed(2)} MB | Type: ${file.type}
+                </p>
+                <input type="file" id="chartFile" name="chart_image" accept="image/*" style="display: none;">
+            `;
+            
+            // Re-attach the file to the new input element
+            const newFileInput = document.getElementById('chartFile');
+            if (newFileInput && file) {
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                newFileInput.files = dt.files;
+                console.log('✅ File re-attached to new input element');
+            }
+            
+            // Re-attach event listeners
+            attachFileInputListeners();
+            
+            updateResults('File uploaded and input recreated successfully!');
+        }
+        
+        function testFileInput() {
+            const fileInput = document.getElementById('chartFile');
+            
+            const result = {
+                elementExists: !!fileInput,
+                elementId: fileInput ? fileInput.id : 'N/A',
+                filesCount: fileInput && fileInput.files ? fileInput.files.length : 0,
+                value: fileInput ? fileInput.value : 'N/A',
+                files: fileInput && fileInput.files && fileInput.files.length > 0 ? 
+                    Array.from(fileInput.files).map(f => ({
+                        name: f.name,
+                        size: f.size,
+                        type: f.type
+                    })) : 'No files'
+            };
+            
+            updateResults(JSON.stringify(result, null, 2));
+        }
+        
+        function simulateUpload() {
+            // Create a fake file for testing
+            const fakeFile = new File(['test content'], 'test-chart.png', { type: 'image/png' });
+            updateUploadArea(fakeFile);
+        }
+        
+        function resetArea() {
+            const uploadArea = document.getElementById('uploadArea');
+            uploadArea.innerHTML = `
+                <div class="upload-icon">
+                    📁
+                </div>
+                <h3>Drop your chart image here (Required)</h3>
+                <p>or click to browse files</p>
+                <input type="file" id="chartFile" name="chart_image" accept="image/*" style="display: none;">
+            `;
+            
+            attachFileInputListeners();
+            updateResults('Upload area reset successfully!');
+        }
+        
+        function updateResults(text) {
+            document.getElementById('results').textContent = text;
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            attachFileInputListeners();
+            updateResults('File input test page loaded. Try uploading a file!');
+        });
+    </script>
+</body>
+</html>

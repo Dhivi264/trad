@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMC Analysis Debug Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover { background: #0056b3; }
+        .btn.success { background: #28a745; }
+        .btn.danger { background: #dc3545; }
+        .result {
+            background: #333;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .input-group input, .input-group select {
+            width: 200px;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background: #444;
+            color: #fff;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>🧠 SMC Analysis Debug Tool</h1>
+    
+    <div class="container">
+        <h2>📊 Quick Test</h2>
+        <div class="input-group">
+            <label>Trading Symbol:</label>
+            <input type="text" id="symbol" value="EURUSD" placeholder="e.g., EURUSD, GBPUSD">
+        </div>
+        <div class="input-group">
+            <label>Timeframe:</label>
+            <select id="timeframe">
+                <option value="15m">15 Minutes</option>
+                <option value="1h" selected>1 Hour</option>
+            </select>
+        </div>
+        
+        <button class="btn success" onclick="testDirectAPI()">🚀 Test Direct API</button>
+        <button class="btn" onclick="testWithFormData()">📋 Test with FormData</button>
+        <button class="btn danger" onclick="clearResults()">🗑️ Clear Results</button>
+    </div>
+    
+    <div class="container">
+        <h2>📈 Results</h2>
+        <div id="status"></div>
+        <div id="results" class="result">Click "Test Direct API" to start...</div>
+    </div>
+    
+    <div class="container">
+        <h2>🔧 System Info</h2>
+        <div id="systemInfo" class="result"></div>
+    </div>
+
+    <script>
+        // Show system info on load
+        document.addEventListener('DOMContentLoaded', () => {
+            showSystemInfo();
+        });
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+        }
+
+        function showResults(data) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.textContent = JSON.stringify(data, null, 2);
+        }
+
+        function clearResults() {
+            document.getElementById('results').textContent = 'Results cleared...';
+            document.getElementById('status').textContent = '';
+            document.getElementById('status').className = 'status';
+        }
+
+        function showSystemInfo() {
+            const info = {
+                userAgent: navigator.userAgent,
+                currentURL: window.location.href,
+                timestamp: new Date().toISOString(),
+                formDataSupported: typeof FormData !== 'undefined',
+                fetchSupported: typeof fetch !== 'undefined'
+            };
+            document.getElementById('systemInfo').textContent = JSON.stringify(info, null, 2);
+        }
+
+        async function testDirectAPI() {
+            const symbol = document.getElementById('symbol').value.trim();
+            const timeframe = document.getElementById('timeframe').value;
+            
+            if (!symbol) {
+                showStatus('Please enter a trading symbol', 'error');
+                return;
+            }
+
+            showStatus('🔄 Testing direct API call...', 'info');
+            
+            try {
+                const formData = new FormData();
+                formData.append('symbol', symbol.toUpperCase());
+                formData.append('timeframe', timeframe);
+                
+                console.log('Making API request to:', 'http://localhost:8000/api/upload-chart-analysis/');
+                
+                const response = await fetch('http://localhost:8000/api/upload-chart-analysis/', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                if (data.success) {
+                    showStatus('✅ API test successful!', 'success');
+                    showResults(data);
+                    
+                    // Show key analysis results
+                    const analysis = data.analysis?.real_price_prediction;
+                    if (analysis) {
+                        const summary = {
+                            symbol: data.symbol,
+                            direction: analysis.direction,
+                            confidence: Math.round(analysis.confidence) + '%',
+                            currentPrice: analysis.current_price,
+                            smcBias: analysis.smc_analysis?.overall_bias,
+                            meetsThreshold: analysis.meets_threshold
+                        };
+                        
+                        console.log('Analysis Summary:', summary);
+                        showStatus(`✅ ${data.symbol}: ${analysis.direction} (${Math.round(analysis.confidence)}% confidence)`, 'success');
+                    }
+                } else {
+                    showStatus('❌ API returned error: ' + (data.error || 'Unknown error'), 'error');
+                    showResults(data);
+                }
+                
+            } catch (error) {
+                console.error('API test failed:', error);
+                showStatus('❌ API test failed: ' + error.message, 'error');
+                showResults({ error: error.message, stack: error.stack });
+            }
+        }
+
+        async function testWithFormData() {
+            const symbol = document.getElementById('symbol').value.trim();
+            const timeframe = document.getElementById('timeframe').value;
+            
+            if (!symbol) {
+                showStatus('Please enter a trading symbol', 'error');
+                return;
+            }
+
+            showStatus('🔄 Testing with enhanced FormData...', 'info');
+            
+            try {
+                // Create form data with additional debugging
+                const formData = new FormData();
+                formData.append('symbol', symbol.toUpperCase());
+                formData.append('timeframe', timeframe);
+                formData.append('debug', 'true');
+                
+                // Log FormData contents
+                console.log('FormData contents:');
+                for (let [key, value] of formData.entries()) {
+                    console.log(`${key}: ${value}`);
+                }
+                
+                const response = await fetch('http://localhost:8000/api/upload-chart-analysis/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    showStatus('✅ FormData test successful!', 'success');
+                    
+                    // Show simplified results
+                    const simplified = {
+                        success: data.success,
+                        symbol: data.symbol,
+                        message: data.message,
+                        direction: data.analysis?.real_price_prediction?.direction,
+                        confidence: data.analysis?.real_price_prediction?.confidence,
+                        smcComponents: Object.keys(data.analysis?.real_price_prediction?.smc_analysis || {})
+                    };
+                    
+                    showResults(simplified);
+                } else {
+                    showStatus('❌ FormData test failed', 'error');
+                    showResults(data);
+                }
+                
+            } catch (error) {
+                console.error('FormData test failed:', error);
+                showStatus('❌ FormData test failed: ' + error.message, 'error');
+                showResults({ error: error.message });
+            }
+        }
+    </script>
+</body>
+</html>

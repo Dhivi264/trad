@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple SMC Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a1a; color: white; }
+        input, select, button { padding: 10px; margin: 10px; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; }
+        .result { margin-top: 20px; padding: 15px; background: #333; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🧠 Simple SMC Analysis Test</h1>
+    
+    <input type="text" id="symbol" placeholder="Symbol (e.g., EURUSD)" value="EURUSD">
+    <select id="timeframe">
+        <option value="1h">1 Hour</option>
+        <option value="15m">15 Minutes</option>
+    </select>
+    <button onclick="analyze()">Analyze</button>
+    
+    <div id="result"></div>
+    
+    <script>
+        async function analyze() {
+            const symbol = document.getElementById('symbol').value;
+            const timeframe = document.getElementById('timeframe').value;
+            const resultDiv = document.getElementById('result');
+            
+            if (!symbol) {
+                resultDiv.innerHTML = '<div class="result">Please enter a symbol</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="result">⏳ Analyzing...</div>';
+            
+            try {
+                const formData = new FormData();
+                formData.append('symbol', symbol);
+                formData.append('timeframe', timeframe);
+                
+                const response = await fetch('http://127.0.0.1:8000/api/upload-chart-analysis/', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const analysis = data.analysis || {};
+                    const realPred = analysis.real_price_prediction || {};
+                    const smcAnalysis = realPred.smc_analysis || {};
+                    
+                    resultDiv.innerHTML = `
+                        <div class="result">
+                            <h3>✅ ${data.message}</h3>
+                            <p><strong>Symbol:</strong> ${data.symbol}</p>
+                            <p><strong>Direction:</strong> ${realPred.direction || 'UNKNOWN'}</p>
+                            <p><strong>Confidence:</strong> ${Math.round(realPred.confidence || 0)}%</p>
+                            <p><strong>Current Price:</strong> ${realPred.current_price || 'N/A'}</p>
+                            <p><strong>SMC Bias:</strong> ${smcAnalysis.overall_bias || 'NEUTRAL'}</p>
+                            <p><strong>SMC Confidence:</strong> ${Math.round(smcAnalysis.confidence_score || 0)}%</p>
+                            
+                            <h4>📊 How SMC Analysis Works Without Chart:</h4>
+                            <ul style="text-align: left; margin-top: 10px;">
+                                <li><strong>Real-time Price Data:</strong> Fetches OHLCV data from APIs</li>
+                                <li><strong>Market Structure:</strong> Analyzes swing highs/lows for structure shifts</li>
+                                <li><strong>Order Blocks:</strong> Identifies institutional zones from price action</li>
+                                <li><strong>Support/Resistance:</strong> Calculates levels from pivot points</li>
+                                <li><strong>Fair Value Gaps:</strong> Detects price imbalances in data</li>
+                                <li><strong>Liquidity Zones:</strong> Maps high-volume, low-range areas</li>
+                                <li><strong>Technical Indicators:</strong> RSI, MACD, Bollinger Bands, etc.</li>
+                                <li><strong>Volume Analysis:</strong> Smart money divergence detection</li>
+                            </ul>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="result">❌ Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result">❌ Connection Error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
